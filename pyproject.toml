@@ -1,0 +1,10 @@
+[project]
+name = "flow2ws"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.13.3",
+    "websockets>=15.0.1",
+]
