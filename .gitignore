@@ -22,5 +22,5 @@ web/
 # PyInstaller
 *.spec.bak
 
-# Icon generation
-icons/
+# Icon generation (keep .icns)
+icons/*.png
