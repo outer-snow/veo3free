@@ -90,15 +90,11 @@ jobs:
           uv sync
           uv run pyinstaller veo3free.spec --clean
 
-      - name: Create ZIP
-        run: |
-          Compress-Archive -Path dist/veo3free/* -DestinationPath veo3free-windows.zip
-
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
           name: veo3free-windows
-          path: veo3free-windows.zip
+          path: dist/veo3free/
 
   release:
     needs: [build-macos, build-windows]
@@ -110,10 +106,16 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
+      - name: Package Windows build
+        run: |
+          cd veo3free-windows
+          zip -r ../veo3free-windows.zip .
+          cd ..
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             veo3free-macos/veo3free-macos.dmg
-            veo3free-windows/veo3free-windows.zip
+            veo3free-windows.zip
           generate_release_notes: true
