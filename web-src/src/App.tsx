@@ -25,6 +25,11 @@ interface Status {
   tasks: Task[];
 }
 
+interface SystemInfo {
+  version: string;
+  userAgent: string;
+}
+
 const TASK_TYPES = [
   { id: 'Create Image', label: '生成图片', icon: Image, color: 'violet' },
   { id: 'Text to Video', label: '文生视频', icon: Film, color: 'blue' },
@@ -166,6 +171,7 @@ function App() {
   const [resolution, setResolution] = useState('4K');
   const [refImages, setRefImages] = useState<string[]>([]);
   const [status, setStatus] = useState<Status>({ client_count: 0, busy_count: 0, is_running: false, tasks: [] });
+  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [ready, setReady] = useState(false);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
 
@@ -192,6 +198,16 @@ function App() {
       }
     };
     check();
+  }, []);
+
+  // 从浏览器信息获取系统信息（不需要后端 API）
+  useEffect(() => {
+    const ua = navigator.userAgent;
+
+    setSystemInfo({
+      version: '1.0.1',
+      userAgent: ua,
+    });
   }, []);
 
   // 轮询状态
@@ -308,7 +324,7 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-6 py-8 pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           {/* Left: Create Panel */}
           <div className="lg:col-span-2 space-y-6">
@@ -616,6 +632,16 @@ function App() {
           </div>
         </div>
       </main>
+
+      {/* Status Bar */}
+      {systemInfo && (
+        <footer className="fixed bottom-0 left-0 right-0 bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 text-xs py-1.5 px-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-800 select-text cursor-text">
+  <div className="flex items-center gap-4">
+    <span>v{systemInfo.version}</span>
+    <span>{systemInfo.userAgent}</span>
+  </div>
+</footer>
+      )}
     </div>
   );
 }

@@ -476,7 +476,6 @@ class Api:
     def __init__(self, task_manager, loop):
         self.task_manager = task_manager
         self.loop = loop
-        self.window = None
 
     def add_task(self, prompt, task_type, aspect_ratio, resolution, reference_images, output_dir):
         task = self.task_manager.add_task(
@@ -598,7 +597,7 @@ class Api:
     def select_images(self):
         """打开文件对话框选择图片"""
         file_types = ('图片文件 (*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp)',)
-        result = self.window.create_file_dialog(
+        result = webview.windows[0].create_file_dialog(
             webview.OPEN_DIALOG,
             allow_multiple=True,
             file_types=file_types
@@ -622,7 +621,7 @@ class Api:
             return {'success': False, 'count': 0, 'errors': ['请安装 openpyxl']}
 
         file_types = ('Excel文件 (*.xlsx)',)
-        result = self.window.create_file_dialog(
+        result = webview.windows[0].create_file_dialog(
             webview.OPEN_DIALOG,
             file_types=file_types
         )
@@ -735,7 +734,7 @@ class Api:
         if Workbook is None:
             return
 
-        result = self.window.create_file_dialog(
+        result = webview.windows[0].create_file_dialog(
             webview.SAVE_DIALOG,
             save_filename='任务模板.xlsx'
         )
@@ -889,7 +888,7 @@ def main():
         min_size=(800, 600),
         js_api=api
     )
-    api.window = window
+    # !!! 严谨对api设置window等对象，例如“api.window = window”是极其危险的！！！
 
     # 启动 webview
     webview.start()
