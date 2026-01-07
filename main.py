@@ -74,6 +74,9 @@ logger.add(
 class TaskManager:
     """任务管理器"""
 
+    TASK_TIMEOUT_SECONDS = 600  # 任务超时时间：10分钟
+    CLIENT_COOLDOWN_SECONDS = 3  # 客户端冷却时间：3秒
+
     def __init__(self):
         self.tasks = []
         self.current_index = 0
@@ -95,7 +98,8 @@ class TaskManager:
             'url': page_url,
             'busy': False,
             'task_id': None,
-            'page_number': page_number
+            'page_number': page_number,
+            'last_task_end': None
         }
         return client_id, page_number
 
@@ -109,8 +113,15 @@ class TaskManager:
             del self.clients[client_id]
 
     def get_idle_client(self):
+        now = datetime.now()
         for cid, info in self.clients.items():
             if not info['busy']:
+                # 检查冷却时间
+                last_end = info.get('last_task_end')
+                if last_end:
+                    elapsed = (now - datetime.fromisoformat(last_end)).total_seconds()
+                    if elapsed < self.CLIENT_COOLDOWN_SECONDS:
+                        continue  # 还在冷却中，跳过这个客户端
                 return cid, info
         return None, None
 
@@ -127,6 +138,7 @@ class TaskManager:
         if client_id in self.clients:
             self.clients[client_id]['busy'] = False
             self.clients[client_id]['task_id'] = None
+            self.clients[client_id]['last_task_end'] = datetime.now().isoformat()
 
     def get_client_count(self):
         total = len(self.clients)
@@ -163,7 +175,9 @@ class TaskManager:
             'task_type': task_type,
             'aspect_ratio': aspect_ratio,
             'resolution': resolution,
-            'reference_images': reference_images or []
+            'reference_images': reference_images or [],
+            'start_time': None,
+            'end_time': None
         }
         self.tasks.append(task)
         return task
@@ -175,6 +189,26 @@ class TaskManager:
                 return task
             self.current_index += 1
         return None
+
+    def check_timeout_tasks(self):
+        """检查并处理超时任务，返回超时的任务列表"""
+        timeout_tasks = []
+        now = datetime.now()
+        for task in self.tasks:
+            if task['status'] == '处理中' and task.get('start_time'):
+                start = datetime.fromisoformat(task['start_time'])
+                elapsed = (now - start).total_seconds()
+                if elapsed > self.TASK_TIMEOUT_SECONDS:
+                    task['status'] = '超时'
+                    task['end_time'] = now.isoformat()
+                    task['status_detail'] = f'任务超时（超过{self.TASK_TIMEOUT_SECONDS // 60}分钟）'
+                    # 释放对应客户端
+                    client_id = task.get('client_id')
+                    if client_id and client_id in self.clients:
+                        self.clients[client_id]['busy'] = False
+                        self.clients[client_id]['task_id'] = None
+                    timeout_tasks.append(task)
+        return timeout_tasks
 
 
 class ImageProcessor:
@@ -306,6 +340,7 @@ class WebSocketServer:
                             if task['id'] == task_id:
                                 task['status'] = '失败'
                                 task['status_detail'] = error
+                                task['end_time'] = datetime.now().isoformat()
                                 break
                     self.task_manager.mark_client_idle(client_id)
 
@@ -351,11 +386,13 @@ class WebSocketServer:
                 saved = await ImageDownloader.save_base64_image(base64_data, filename, output_dir)
                 if saved:
                     task['status'] = '已完成'
+                    task['end_time'] = datetime.now().isoformat()
                     task['saved_path'] = str(saved)
                     task['output_dir_path'] = str(output_dir)
                     self.log(f"💾 已保存: {saved}")
                 else:
                     task['status'] = '下载失败'
+                    task['end_time'] = datetime.now().isoformat()
                     self.log(f"❌ 下载失败")
                 break
         self.task_manager.mark_client_idle(client_id)
@@ -410,7 +447,9 @@ class Api:
                 'aspect_ratio': t['aspect_ratio'],
                 'resolution': t['resolution'],
                 'saved_path': t.get('saved_path', ''),
-                'output_dir': t.get('output_dir', '')
+                'output_dir': t.get('output_dir', ''),
+                'start_time': t.get('start_time'),
+                'end_time': t.get('end_time')
             })
         return {
             'client_count': total,
@@ -438,6 +477,11 @@ class Api:
         logger.info("▶ 开始执行任务队列")
 
         while self.task_manager.is_running:
+            # 检查超时任务
+            timeout_tasks = self.task_manager.check_timeout_tasks()
+            for t in timeout_tasks:
+                logger.warning(f"⏰ 任务超时: {t['id']} - {t['prompt'][:30]}...")
+
             task = self.task_manager.get_next_task()
             if not task:
                 has_busy = any(c['busy'] for c in self.task_manager.clients.values())
@@ -453,6 +497,7 @@ class Api:
                 continue
 
             task['status'] = '处理中'
+            task['start_time'] = datetime.now().isoformat()
             self.task_manager.mark_client_busy(client_id, task['id'])
             self.task_manager.current_index += 1
 

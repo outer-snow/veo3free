@@ -12,6 +12,8 @@ interface Task {
   resolution: string;
   saved_path?: string;
   output_dir?: string;
+  start_time?: string;
+  end_time?: string;
 }
 
 interface Status {
@@ -30,6 +32,20 @@ const TASK_TYPES = [
 
 const ASPECT_RATIOS = ['16:9', '9:16'];
 
+function formatDuration(startTime?: string, endTime?: string): string {
+  if (!startTime) return '';
+  const start = new Date(startTime).getTime();
+  const end = endTime ? new Date(endTime).getTime() : Date.now();
+  const seconds = Math.floor((end - start) / 1000);
+
+  if (seconds < 60) {
+    return `${seconds}秒`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}分${remainingSeconds}秒`;
+}
+
 interface TaskCardProps {
   task: Task;
   index: number;
@@ -37,16 +53,27 @@ interface TaskCardProps {
 }
 
 function TaskCard({ task, index, onOpenDir }: TaskCardProps) {
-  const statusConfig: Record<string, { icon: any; color: string; bg: string; text: string; label: string; animate?: boolean }> = {
+  const [, setTick] = useState(0);
+  const statusConfig: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; bg: string; text: string; label: string; animate?: boolean }> = {
     '已完成': { icon: Check, color: 'emerald', bg: 'bg-emerald-50', text: 'text-emerald-600', label: '已完成' },
     '处理中': { icon: Loader2, color: 'blue', bg: 'bg-blue-50', text: 'text-blue-600', label: task.status_detail || '处理中', animate: true },
     '等待中': { icon: Clock, color: 'zinc', bg: 'bg-zinc-100', text: 'text-zinc-500', label: '排队中' },
     '失败': { icon: AlertCircle, color: 'red', bg: 'bg-red-50', text: 'text-red-500', label: task.status_detail || '失败' },
+    '超时': { icon: AlertCircle, color: 'orange', bg: 'bg-orange-50', text: 'text-orange-500', label: '超时' },
   };
+
+  // 处理中时每秒更新一次，刷新运行时间
+  useEffect(() => {
+    if (task.status === '处理中' && task.start_time) {
+      const timer = setInterval(() => setTick(t => t + 1), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [task.status, task.start_time]);
 
   const config = statusConfig[task.status] || statusConfig['等待中'];
   const typeInfo = TASK_TYPES.find(t => t.id === task.task_type);
   const StatusIcon = config.icon;
+  const duration = formatDuration(task.start_time, task.end_time);
 
   return (
     <motion.div
@@ -67,10 +94,19 @@ function TaskCard({ task, index, onOpenDir }: TaskCardProps) {
             <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-600">
               {typeInfo?.label || task.task_type}
             </span>
-            <span className="text-xs text-zinc-400">#{task.id}</span>
             <span className="text-xs text-zinc-400">{task.aspect_ratio} · {task.resolution}</span>
+            {duration && (
+              <span className={`text-xs px-2 py-0.5 rounded-full ${task.status === '处理中' ? 'bg-blue-100 text-blue-600' : 'bg-zinc-100 text-zinc-500'}`}>
+                ⏱ {duration}
+              </span>
+            )}
           </div>
           <p className="text-sm text-zinc-700 line-clamp-2 leading-relaxed">{task.prompt}</p>
+          {task.status_detail && (
+            <p className={`text-xs mt-1 ${task.status === '失败' ? 'text-red-500' : 'text-blue-500'}`}>
+              {task.status_detail}
+            </p>
+          )}
           {task.saved_path && (
             <p className="text-xs text-zinc-400 mt-2 flex items-center gap-1 truncate">
               <FolderOpen className="w-3 h-3 flex-shrink-0" />
