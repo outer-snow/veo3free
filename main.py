@@ -611,6 +611,18 @@ class Api:
 
             logger.info(f"[{client_id}] 分配任务: {task['prompt'][:40]}...")
 
+            # 延迟处理参考图片：如果是路径则压缩为 base64
+            reference_images = []
+            for img in task['reference_images']:
+                if img and not img.startswith('/9j/') and not img.startswith('iVBOR') and Path(img).exists():
+                    # 是文件路径，需要压缩
+                    base64_data = ImageProcessor.compress_image_to_base64(img)
+                    if base64_data:
+                        reference_images.append(base64_data)
+                else:
+                    # 已经是 base64 数据
+                    reference_images.append(img)
+
             message = json.dumps({
                 'type': 'task',
                 'task_id': task['id'],
@@ -618,7 +630,7 @@ class Api:
                 'task_type': task['task_type'],
                 'aspect_ratio': task['aspect_ratio'],
                 'resolution': task['resolution'],
-                'reference_images': task['reference_images']
+                'reference_images': reference_images
             })
 
             try:
@@ -758,14 +770,13 @@ class Api:
                         "Text to Video": 0
                     }.get(task_type, 8)
 
+                    # 只收集图片路径，不在导入时压缩（延迟到执行时处理）
                     for i in range(max_images):
                         col_idx = 6 + i
                         if len(row) > col_idx and row[col_idx]:
                             img_path = str(row[col_idx]).strip()
                             if img_path and Path(img_path).exists():
-                                base64_data = ImageProcessor.compress_image_to_base64(img_path)
-                                if base64_data:
-                                    reference_images.append(base64_data)
+                                reference_images.append(img_path)
 
                     tasks_to_add.append({
                         'prompt': prompt,
