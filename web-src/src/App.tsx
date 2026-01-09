@@ -161,7 +161,7 @@ function App() {
   const [prompt, setPrompt] = useState('');
   const [taskType, setTaskType] = useState('Create Image');
   const [aspectRatio, setAspectRatio] = useState('16:9');
-  const [resolution, setResolution] = useState('4K');
+  const [resolution, setResolution] = useState('1K');
   const [refImages, setRefImages] = useState<string[]>([]);
   const [status, setStatus] = useState<Status>({ client_count: 0, busy_count: 0, is_running: false, tasks: [] });
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
@@ -170,7 +170,7 @@ function App() {
 
   const api = typeof window !== 'undefined' ? window.pywebview?.api : null;
 
-  const resolutions = taskType === 'Create Image' ? ['2K', '4K'] : ['720p', '1080p'];
+  const resolutions = taskType === 'Create Image' ? ['1K', '2K', '4K'] : ['720p', '1080p'];
 
   // 缓存任务统计，避免每次都重新计算
   const { completed, processing, progress } = useMemo(() => {

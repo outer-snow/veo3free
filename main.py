@@ -181,7 +181,7 @@ class TaskManager:
         return False
 
     def add_task(self, prompt, task_type, aspect_ratio, resolution,
-                 reference_images=None, output_dir=None):
+                 reference_images=None, output_dir=None, import_row_number=None):
         prompt = prompt.strip()
         if not prompt:
             return None
@@ -205,7 +205,8 @@ class TaskManager:
             'resolution': resolution,
             'reference_images': reference_images or [],
             'start_time': None,
-            'end_time': None
+            'end_time': None,
+            'import_row_number': import_row_number  # 导入任务的行号（编号）
         }
         self.tasks.append(task)
         return task
@@ -241,7 +242,7 @@ class TaskManager:
 
 class ImageProcessor:
     @staticmethod
-    def compress_image_to_base64(image_path, max_size_bytes=1024 * 1024):
+    def compress_image_to_base64(image_path, max_size_bytes=128 * 1024):
         try:
             img = Image.open(image_path)
             if img.mode in ('RGBA', 'LA', 'P'):
@@ -427,17 +428,26 @@ class WebSocketServer:
                     output_dir = OUTPUT_DIR
                 output_dir.mkdir(parents=True, exist_ok=True)
 
-                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                 file_ext = task.get('file_ext', '.png')
-                filename = f"{timestamp}{file_ext}"
-                filepath = output_dir / filename
 
-                counter = 1
-                while filepath.exists():
-                    filename = f"{timestamp}_{counter}{file_ext}"
+                # 如果是导入任务，使用行号作为文件名（不论是否设置输出文件夹）
+                if task.get('import_row_number'):
+                    filename = f"{task['import_row_number']}{file_ext}"
                     filepath = output_dir / filename
-                    counter += 1
+                else:
+                    # 普通任务使用时间戳
+                    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                    filename = f"{timestamp}{file_ext}"
+                    filepath = output_dir / filename
 
+                    # 避免重名
+                    counter = 1
+                    while filepath.exists():
+                        filename = f"{timestamp}_{counter}{file_ext}"
+                        filepath = output_dir / filename
+                        counter += 1
+
+                # 保存文件
                 saved = await ImageDownloader.save_base64_image(base64_data, filename, output_dir)
                 if saved:
                     task['status'] = '已完成'
@@ -564,6 +574,36 @@ class Api:
                 await asyncio.sleep(1)
                 continue
 
+            # 检查导入任务的文件是否已存在，如果存在直接跳过
+            if task.get('import_row_number'):
+                output_dir = task.get('output_dir')
+                if output_dir:
+                    if not Path(output_dir).is_absolute():
+                        output_dir = OUTPUT_DIR / output_dir
+                    else:
+                        output_dir = Path(output_dir)
+                else:
+                    output_dir = OUTPUT_DIR
+
+                file_ext = task.get('file_ext', '.png')
+                filepath = output_dir / f"{task['import_row_number']}{file_ext}"
+
+                if filepath.exists():
+                    task['status'] = '已完成'
+                    task['end_time'] = datetime.now().isoformat()
+                    task['saved_path'] = str(filepath.absolute())
+                    task['output_dir_path'] = str(output_dir)
+                    task['status_detail'] = '文件已存在，跳过生成'
+                    # 生成缩略图
+                    if file_ext in ('.png', '.jpg'):
+                        try:
+                            task['preview_base64'] = ImageProcessor.generate_thumbnail(str(filepath), size=(200, 200))
+                        except Exception:
+                            task['preview_base64'] = ''
+                    logger.info(f"[跳过] 文件已存在: {filepath}")
+                    self.task_manager.current_index += 1
+                    continue
+
             task['status'] = '处理中'
             task['start_time'] = datetime.now().isoformat()
             self.task_manager.mark_client_busy(client_id, task['id'])
@@ -670,6 +710,9 @@ class Api:
                     continue
 
                 try:
+                    # 读取编号列（第一列）
+                    row_number = str(row[0]).strip() if row[0] else str(row_idx)
+
                     prompt = str(row[1]).strip() if row[1] else ""
                     if not prompt:
                         continue
@@ -681,7 +724,7 @@ class Api:
 
                     # 验证任务类型
                     if task_type_cn not in task_type_map:
-                        validation_errors.append(f"行{row_idx}: 未知任务类型: {task_type_cn}，请使用: {', '.join(task_type_map.keys())}")
+                        validation_errors.append(f"编号{row_number}: 未知任务类型: {task_type_cn}，请使用: {', '.join(task_type_map.keys())}")
                         continue
 
                     task_type = task_type_map[task_type_cn]
@@ -730,11 +773,12 @@ class Api:
                         'aspect_ratio': aspect_ratio,
                         'resolution': resolution,
                         'reference_images': reference_images,
-                        'output_dir': output_dir
+                        'output_dir': output_dir,
+                        'import_row_number': row_number  # Excel 编号列的值
                     })
 
                 except Exception as e:
-                    validation_errors.append(f"行{row_idx}: {str(e)}")
+                    validation_errors.append(f"编号{row_number}: {str(e)}")
 
             wb.close()
 
@@ -754,7 +798,8 @@ class Api:
                     aspect_ratio=task_data['aspect_ratio'],
                     resolution=task_data['resolution'],
                     reference_images=task_data['reference_images'],
-                    output_dir=task_data['output_dir']
+                    output_dir=task_data['output_dir'],
+                    import_row_number=task_data['import_row_number']
                 )
 
             count = len(tasks_to_add)

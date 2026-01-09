@@ -241,15 +241,32 @@
                     "1080p": "Upscaled (1080p)", "720p": "Original size (720p)",
                     "4K": "Download 4K", "2K": "Download 2K", "1K": "Download 1K"
                 };
-                const resolutionText = resMap[resolution];
-                if (!resolutionText) throw new Error('未知分辨率: ' + resolution);
-                const dlBtn = $x1(`//div[contains(text(), '${resolutionText}')]`);
-                if (!dlBtn) throw new Error('未找到 ' + resolutionText + ' 下载按钮');
-                dlBtn.click();
 
-                // 等待图片数据
-                sendStatus('获取数据...');
-                const base64Data = await waitForImageData( 4 * 60 * 1000);
+                let base64Data = null;
+                if (resolution.toUpperCase() === '1K') {
+                    const img1k = $x1('//div[@data-item-index][contains(., "Reuse prompt")]/div/div/div/div/div[1]//img');
+                    const response = await fetch(img1k.src);
+                    const blob = await response.blob();
+
+                    base64Data = await new Promise((resolve) => {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        resolve(reader.result);
+                      };
+                      reader.readAsDataURL(blob);
+                    });
+                } else {
+                    const resolutionText = resMap[resolution];
+                    if (!resolutionText) throw new Error('未知分辨率: ' + resolution);
+                    const dlBtn = $x1(`//div[contains(text(), '${resolutionText}')]`);
+                    if (!dlBtn) throw new Error('未找到 ' + resolutionText + ' 下载按钮');
+                    dlBtn.click();
+
+                    // 等待图片数据
+                    sendStatus('获取数据...');
+                    base64Data = await waitForImageData( 4 * 60 * 1000);
+                }
+
 
                 if (base64Data) {
                     sendStatus('发送数据...');
