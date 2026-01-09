@@ -61,6 +61,12 @@
     function init() {
         console.log('🎯 初始化');
 
+        // URL 模式检查
+        if (!/^https:\/\/labs\.google\/fx\/tools\/flow\/project\/.+/.test(location.href)) {
+            console.log('URL不匹配，不建立连接');
+            return;
+        }
+
         // XPath helpers
         const $x1 = (xpath, ctx = document) => document.evaluate(xpath, ctx, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
         const $x = (xpath, ctx = document) => {
@@ -146,6 +152,8 @@
         let ws = null;
         let isExecuting = false;
         let clientId = null;
+        let shouldConnect = true;
+        let hideTimer = null;
 
         function sendWsMessage(data) {
             if (ws?.readyState !== WebSocket.OPEN) return false;
@@ -221,8 +229,9 @@
                 // 等待生成完成
                 const genOk = await waitUntil(() => {
                     const container = $x1('//div[@data-item-index][contains(., "Reuse prompt")]/div/div/div/div/div[1]');
+                    if (!container) return false;
                     if ($x1(".//img | .//video", container)) return true;
-                    const text = container?.innerText;
+                    const text = container.innerText;
                     if (text?.trim().endsWith('%')) sendStatus('进度 ' + text);
                     else if (text && !text.includes('\n')) throw new Error('生成失败: ' + text);
                     return false;
@@ -301,11 +310,11 @@
         }
 
         function connect() {
-            console.log('🔌 连接 ws://localhost:12345');
+            console.log('连接 ws://localhost:12345');
             ws = new WebSocket('ws://localhost:12345');
 
             ws.onopen = () => {
-                console.log('✅ 连接成功，发送注册');
+                console.log('连接成功，发送注册');
                 ws.send(JSON.stringify({
                     type: 'register',
                     page_url: window.location.href
@@ -317,13 +326,13 @@
 
                 if (data.type === 'register_success') {
                     clientId = data.client_id;
-                    console.log('✅ 注册成功:', clientId);
+                    console.log('注册成功:', clientId);
                     updateButton('已连接', '#28a745');
                     return;
                 }
 
                 if (data.type === 'task') {
-                    console.log('📋 收到任务:', data.task_id);
+                    console.log('收到任务:', data.task_id);
                     await executeTask(
                         data.task_id,
                         data.prompt,
@@ -336,14 +345,28 @@
             };
 
             ws.onclose = () => {
-                console.log('❌ 断开，3秒后重连');
+                console.log('断开');
                 clientId = null;
                 updateButton('已断开', '#dc3545');
-                setTimeout(connect, 3000);
+                if (shouldConnect) setTimeout(connect, 3000);
             };
 
-            ws.onerror = (err) => console.error('❌ 错误:', err);
+            ws.onerror = (err) => console.error('错误:', err);
         }
+
+        // 页面可见性监听
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                hideTimer = setTimeout(() => {
+                    shouldConnect = false;
+                    ws?.close();
+                }, 30000);
+            } else {
+                clearTimeout(hideTimer);
+                shouldConnect = true;
+                if (!ws || ws.readyState !== WebSocket.OPEN) connect();
+            }
+        });
 
         // UI 按钮
         const btn = document.createElement('div');
