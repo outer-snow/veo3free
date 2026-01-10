@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Play, Square, FolderOpen, FileSpreadsheet, X, Image, Film, Sparkles, Check, Loader2, Clock, AlertCircle, Plus, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { UpdateModal } from './components/UpdateModal';
+import { UpdateStatusBar } from './components/UpdateStatusBar';
+import type { SystemInfo, UpdateInfo } from './types';
 
 interface Task {
   id: string;
@@ -23,11 +26,6 @@ interface Status {
   busy_count: number;
   is_running: boolean;
   tasks: Task[];
-}
-
-interface SystemInfo {
-  version: string;
-  userAgent: string;
 }
 
 const TASK_TYPES = [
@@ -167,6 +165,9 @@ function App() {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [ready, setReady] = useState(false);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   const api = typeof window !== 'undefined' ? window.pywebview?.api : null;
 
@@ -201,15 +202,25 @@ function App() {
     check();
   }, []);
 
-  // 从浏览器信息获取系统信息（不需要后端 API）
+  // 从后端获取版本号
   useEffect(() => {
-    const ua = navigator.userAgent;
-
-    setSystemInfo({
-      version: '1.0.1',
-      userAgent: ua,
-    });
-  }, []);
+    if (!ready || !api) return;
+    const fetchVersion = async () => {
+      try {
+        const version = await api.get_app_version();
+        setSystemInfo({
+          version: version || 'dev',
+          userAgent: navigator.userAgent,
+        });
+      } catch {
+        setSystemInfo({
+          version: 'dev',
+          userAgent: navigator.userAgent,
+        });
+      }
+    };
+    fetchVersion();
+  }, [ready, api]);
 
   // 轮询状态（固定延迟 1.5s）
   useEffect(() => {
@@ -298,6 +309,49 @@ function App() {
   const handleOpenOutputDir = async () => {
     if (!ready || !api) return;
     await api.open_output_dir();
+  };
+
+  // 检查更新
+  const checkForUpdate = async (showNoUpdate = false) => {
+    if (!ready || !api || checkingUpdate) return;
+
+    setCheckingUpdate(true);
+    try {
+      const result = await api.check_update();
+      setUpdateInfo(result);
+
+      if (result.success && result.has_update) {
+        setShowUpdateModal(true);
+      } else if (showNoUpdate && result.success) {
+        alert('当前已是最新版本');
+      } else if (!result.success && showNoUpdate) {
+        alert('检查更新失败，请检查网络连接');
+      }
+    } catch {
+      if (showNoUpdate) {
+        alert('检查更新失败');
+      }
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
+
+  // 启动时自动检查更新
+  useEffect(() => {
+    if (ready && api) {
+      const timer = setTimeout(() => {
+        checkForUpdate(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [ready, api]);
+
+  // 打开下载页面
+  const handleOpenDownload = async () => {
+    if (updateInfo && api) {
+      await api.open_update_page(updateInfo.download_url || updateInfo.release_url);
+      setShowUpdateModal(false);
+    }
   };
 
   return (
@@ -639,14 +693,20 @@ function App() {
       </main>
 
       {/* Status Bar */}
-      {systemInfo && (
-        <footer className="fixed bottom-0 left-0 right-0 bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 text-xs py-1.5 px-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-800 select-text cursor-text">
-  <div className="flex items-center gap-4">
-    <span>v{systemInfo.version}</span>
-    <span>{systemInfo.userAgent}</span>
-  </div>
-</footer>
-      )}
+      <UpdateStatusBar
+        systemInfo={systemInfo}
+        checkingUpdate={checkingUpdate}
+        updateInfo={updateInfo}
+        onCheckUpdate={() => checkForUpdate(true)}
+      />
+
+      {/* Update Modal */}
+      <UpdateModal
+        isOpen={showUpdateModal}
+        updateInfo={updateInfo}
+        onClose={() => setShowUpdateModal(false)}
+        onDownload={handleOpenDownload}
+      />
     </div>
   );
 }

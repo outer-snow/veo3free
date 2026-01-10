@@ -53,6 +53,9 @@ except ImportError:
     print("请安装 pywebview: pip install pywebview")
     sys.exit(1)
 
+from version import get_version
+from updater import check_for_updates, open_download_page
+
 # 确定输出目录位置
 if getattr(sys, 'frozen', False):
     # 打包后，使用用户文档目录
@@ -919,6 +922,45 @@ class Api:
             subprocess.run(['open', path_str])
         else:
             subprocess.run(['xdg-open', path_str])
+
+    def get_app_version(self) -> str:
+        """获取应用版本号"""
+        version = get_version()
+        logger.info(f"获取应用版本: {version}")
+        return version
+
+    def check_update(self) -> dict:
+        """检查更新"""
+        logger.info("前端请求检查更新")
+        info = check_for_updates()
+
+        if info is None:
+            logger.warning("更新检查返回 None，检查失败")
+            return {
+                'success': False,
+                'has_update': False,
+                'current_version': get_version(),
+                'latest_version': '',
+                'release_notes': '',
+                'download_url': '',
+                'release_url': ''
+            }
+
+        logger.info(f"更新检查完成: 有更新={info.has_update}, 最新版本={info.latest_version}")
+        return {
+            'success': True,
+            'has_update': info.has_update,
+            'current_version': info.current_version,
+            'latest_version': info.latest_version,
+            'release_notes': info.release_notes,
+            'download_url': info.download_url,
+            'release_url': info.release_url
+        }
+
+    def open_update_page(self, url: str) -> bool:
+        """在浏览器中打开更新下载页面"""
+        logger.info(f"打开下载页面: {url}")
+        return open_download_page(url)
 
 
 def run_async_loop(loop):

@@ -17,6 +17,21 @@ export interface Status {
   tasks: Task[];
 }
 
+export interface SystemInfo {
+  version: string;
+  userAgent: string;
+}
+
+export interface UpdateInfo {
+  success: boolean;
+  has_update: boolean;
+  current_version: string;
+  latest_version: string;
+  release_notes: string;
+  download_url: string;
+  release_url: string;
+}
+
 export interface PyWebViewApi {
   add_task: (
     prompt: string,
@@ -34,6 +49,9 @@ export interface PyWebViewApi {
   export_template: () => Promise<void>;
   open_output_dir: () => Promise<void>;
   open_task_dir: (task_index: number) => Promise<void>;
+  get_app_version: () => Promise<string>;
+  check_update: () => Promise<UpdateInfo>;
+  open_update_page: (url: string) => Promise<boolean>;
 }
 
 declare global {
