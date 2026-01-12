@@ -171,7 +171,10 @@ function App() {
 
   const api = typeof window !== 'undefined' ? window.pywebview?.api : null;
 
-  const resolutions = taskType === 'Create Image' ? ['1K', '2K', '4K'] : ['720p', '1080p'];
+  // 视频类任务竖屏时只支持720p
+  const resolutions = taskType === 'Create Image'
+    ? ['1K', '2K', '4K']
+    : (aspectRatio === '9:16' ? ['720p'] : ['720p', '1080p']);
 
   // 缓存任务统计，避免每次都重新计算
   const { completed, processing, progress } = useMemo(() => {
@@ -242,15 +245,19 @@ function App() {
     return () => { cancelled = true; };
   }, [ready, api]);
 
-  // 任务类型变化时重置
+  // 任务类型或比例变化时重置分辨率
   useEffect(() => {
-    if (!resolutions.includes(resolution)) {
-      setResolution(resolutions[resolutions.length - 1]);
+    const currentResolutions = taskType === 'Create Image'
+      ? ['1K', '2K', '4K']
+      : (aspectRatio === '9:16' ? ['720p'] : ['720p', '1080p']);
+
+    if (!currentResolutions.includes(resolution)) {
+      setResolution(currentResolutions[currentResolutions.length - 1]);
     }
     if (taskType === 'Text to Video') {
       setRefImages([]);
     }
-  }, [taskType]);
+  }, [taskType, aspectRatio]);
 
   const addTask = async () => {
     if (!prompt.trim() || !ready || !api) return;
@@ -375,9 +382,28 @@ function App() {
                 <div className={`w-2 h-2 rounded-full ${status.is_running ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-300'}`} />
                 <span className="text-sm text-zinc-600">{status.is_running ? '运行中' : '空闲'}</span>
               </div>
-              <div className="text-sm text-zinc-500 px-3 py-1.5 bg-zinc-100 rounded-full">
-                {status.client_count > 0 ? `${status.client_count} 设备在线` : '无连接'}
-              </div>
+              {status.client_count > 0 && (
+                <div className="text-sm text-zinc-500 px-3 py-1.5 bg-zinc-100 rounded-full">
+                  {status.client_count} 设备在线
+                </div>
+              )}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => api?.open_guide_page?.()}
+                className={`flex items-center justify-center rounded-full transition-colors ${
+                  status.client_count > 0
+                    ? 'w-8 h-8 bg-zinc-100 hover:bg-zinc-200 text-zinc-400 hover:text-zinc-600'
+                    : 'px-3 py-1.5 bg-violet-500 text-white hover:bg-violet-600 text-sm font-medium'
+                }`}
+                title="添加设备连接"
+              >
+                {status.client_count > 0 ? (
+                  <Plus className="w-4 h-4" />
+                ) : (
+                  '添加连接'
+                )}
+              </motion.button>
             </div>
           </div>
         </div>

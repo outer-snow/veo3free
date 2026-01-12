@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>flow3free 连接设置</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        .browser-warning {
+            display: none;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 40px 20px;
+            color: #dc2626;
+            font-size: 16px;
+            text-align: center;
+            max-width: 500px;
+            margin: 100px auto;
+        }
+
+        .browser-warning.show {
+            display: block;
+        }
+
+        .browser-error .container {
+            display: none;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+
+        .bookmarklet-button {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 8px;
+            background: #fafafa;
+            border: 2px solid #d1d5db;
+            border-radius: 6px;
+            cursor: grab;
+            user-select: none;
+            text-decoration: none;
+            color: #374151;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.15s;
+        }
+
+        .bookmarklet-button:hover {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .bookmarklet-button:active {
+            cursor: grabbing;
+        }
+
+        .arrow-up svg {
+            width: 28px;
+            height: 28px;
+            color: #1a73e8;
+        }
+
+        @keyframes arrow-bounce {
+            0%, 100% {
+                transform: translateY(0);
+                opacity: 0.6;
+            }
+            50% {
+                transform: translateY(-8px);
+                opacity: 1;
+            }
+        }
+
+        .bookmark-help {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-top: 16px;
+            text-align: left;
+        }
+
+        .bookmark-help-title {
+            color: #374151;
+            font-weight: 500;
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+
+        .bookmark-help-content {
+            color: #6b7280;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .bookmark-help code {
+            background: #e5e7eb;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+
+        .steps {
+            background: white;
+            padding: 8px 32px 32px 32px;
+        }
+
+        .step {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            margin-bottom: 28px;
+        }
+
+        .step:last-child {
+            margin-bottom: 0;
+        }
+
+        .step-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: #f3f4f6;
+            color: #374151;
+            border-radius: 50%;
+            font-weight: 600;
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+            padding-top: 4px;
+        }
+
+        .step-content-title {
+            color: #1f2937;
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .step-content-desc {
+            color: #6b7280;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .flow-link {
+            color: #1a73e8;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .flow-link:hover {
+            text-decoration: underline;
+        }
+
+        .important-note {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #92400e;
+        }
+
+        @media (max-width: 640px) {
+
+            .step-content-title {
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+<!-- 浏览器不支持警告 -->
+<div class="browser-warning" id="browserWarning"></div>
+
+<div class="container">
+
+    <div class="steps">
+        <div class="step">
+            <div class="step-number" style="margin-top: 9px">1</div>
+            <div class="step-content">
+                <div class="step-content-title">
+                    拖拽
+                    <a href="javascript:(function(){if(window.__flow3free_loaded){console.log('flow3free already loaded');return;}window.__flow3free_loaded=true;var s=document.createElement('script');s.src='http://localhost:12346/inject.js?t='+Date.now();s.onerror=function(){console.error('Failed to load inject.js');window.__flow3free_loaded=false;};document.body.appendChild(s);})();"
+                       class="bookmarklet-button" draggable="true">
+                        flow3free
+                    </a>
+                    到上方书签栏
+                </div>
+                <div class="step-content-desc">
+
+                    将上方的 flow3free 按钮拖拽到浏览器顶部的书签栏中，只需操作一次。
+
+                    <div class="bookmark-help" id="bookmarkHelp">
+                        <div class="bookmark-help-title">如果看不到书签栏：</div>
+                        <div class="bookmark-help-content" id="bookmarkHelpContent">
+                            <!-- 内容由 JavaScript 填充 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+                <div class="step-content-title">打开 Flow 页面并进入项目</div>
+                <div class="step-content-desc">
+                    前往 <a href="https://labs.google/fx/tools/flow" target="_blank" class="flow-link">Google Flow</a>，创建或打开一个项目进入编辑界面。
+                    <div class="important-note">
+                        ⚠️ 确保 Flow 界面语言设置为英文（English）；并确保使用的是Gemini Ultra权限的账号（即45000积分版本）
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+                <div class="step-content-title">点击书签激活连接</div>
+                <div class="step-content-desc">
+                    在 Flow 项目页面中，点击书签栏的 flow3free 按钮即可建立连接，开始同步生成内容。
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 检测浏览器
+    function detectBrowser() {
+        const ua = navigator.userAgent;
+        const isChrome = /Chrome/.test(ua) && /Google Inc/.test(navigator.vendor);
+        const isEdge = /Edg/.test(ua);
+        const isOpera = /OPR/.test(ua);
+
+        const browserWarning = document.getElementById('browserWarning');
+
+        // 非 Chrome 浏览器直接报错
+        if (!isChrome || isEdge || isOpera) {
+            browserWarning.innerHTML = '<strong>请在 Chrome 浏览器中打开</strong><br><br>复制当前网址，粘贴到 Google Chrome 浏览器中访问';
+            browserWarning.classList.add('show');
+            document.body.classList.add('browser-error');
+            return false;
+        }
+
+        return true;
+    }
+
+    // 设置书签栏帮助内容
+    function setupBookmarkHelp() {
+        const systemInfo = navigator.platform;
+        const isMac = systemInfo.includes('Mac');
+        const isWindows = systemInfo.includes('Win');
+        const isLinux = systemInfo.includes('Linux');
+
+        const helpContent = document.getElementById('bookmarkHelpContent');
+
+        let content = '';
+        if (isMac) {
+            content = '在 Chrome 中按 <code>Cmd + Shift + B</code>';
+        } else if (isWindows || isLinux) {
+            content = '在 Chrome 中按 <code>Ctrl + Shift + B</code>';
+        }
+
+        helpContent.innerHTML = content;
+    }
+
+    // 页面加载时执行
+    window.addEventListener('load', function () {
+        detectBrowser();
+        setupBookmarkHelp();
+    });
+</script>
+</body>
+</html>

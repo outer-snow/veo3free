@@ -13,8 +13,11 @@ import io
 import subprocess
 import platform
 import threading
+import webbrowser
 from datetime import datetime
 from pathlib import Path
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+from functools import partial
 
 # Windows 下设置输出编码为 UTF-8
 if sys.platform == 'win32':
@@ -326,6 +329,43 @@ class ImageDownloader:
         except Exception as e:
             log_error_to_file("保存图片失败", e)
             return None
+
+
+class GuideServer:
+    """引导页面 HTTP 服务器"""
+
+    def __init__(self, port=12346):
+        self.port = port
+        self.server = None
+        self.thread = None
+
+    def start(self):
+        """启动 HTTP 服务器"""
+        if getattr(sys, 'frozen', False):
+            guide_dir = Path(sys._MEIPASS) / 'guide'
+        else:
+            guide_dir = Path(__file__).parent / 'guide'
+
+        if not guide_dir.exists():
+            logger.warning(f"引导页面目录不存在: {guide_dir}")
+            return False
+
+        try:
+            handler = partial(SimpleHTTPRequestHandler, directory=str(guide_dir))
+            self.server = HTTPServer(('localhost', self.port), handler)
+            self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+            self.thread.start()
+            logger.info(f"引导页面服务已启动: http://localhost:{self.port}")
+            return True
+        except OSError as e:
+            logger.error(f"启动引导页面服务失败: {e}")
+            return False
+
+    def stop(self):
+        """停止 HTTP 服务器"""
+        if self.server:
+            self.server.shutdown()
+            logger.info("引导页面服务已停止")
 
 
 class WebSocketServer:
@@ -685,7 +725,7 @@ class Api:
         filepath = result[0]
 
         # 验证分辨率和任务类型是否匹配
-        def validate_resolution(task_type, resolution):
+        def validate_resolution(task_type, resolution, aspect_ratio):
             """检查分辨率是否与任务类型兼容"""
             valid_resolutions = {
                 "Create Image": ["4K", "2K", "1K"],
@@ -697,6 +737,11 @@ class Api:
                 return False, f"未知任务类型: {task_type}"
 
             allowed = valid_resolutions[task_type]
+
+            # 视频类任务竖屏时不支持1080p
+            if "Video" in task_type and aspect_ratio == "9:16" and resolution == "1080p":
+                return False, f"{task_type} 竖屏模式不支持 1080p，请使用 720p"
+
             if resolution not in allowed:
                 return False, f"{task_type} 不支持分辨率 {resolution}，请使用: {', '.join(allowed)}"
             return True, ""
@@ -760,7 +805,7 @@ class Api:
                             resolution = "720p"
 
                     # 验证分辨率
-                    is_valid, error_msg = validate_resolution(task_type, resolution)
+                    is_valid, error_msg = validate_resolution(task_type, resolution, aspect_ratio)
                     if not is_valid:
                         validation_errors.append(f"行{row_idx}: {error_msg}")
                         continue
@@ -857,7 +902,7 @@ class Api:
                 [1, "A beautiful sunset over the ocean", "文生图片", "横屏", "4K", "sunset"],
                 [2, "A beautiful moon over the ocean", "文生图片", "竖屏", "2K", "sunset"],
                 [3, "A cute cat playing", "文生视频", "横屏", "1080p", "cats"],
-                [4, "A cute dog playing", "文生视频", "竖屏", "720p", "dogs"],
+                [4, "A cute dog playing", "文生视频", "竖屏", "720p", "dogs_注意veo3竖屏视频不支持1080p"],
                 [5, "动起来", "首尾帧视频", "横屏", "1080p", "frames", "/Users/wei/Downloads/pig.jpeg"],
                 [6, "组合这些照片为一个创意视频", "图生视频", "横屏", "1080p", "collage", "/Users/wei/Downloads/pig.jpeg"],
             ]
@@ -962,6 +1007,17 @@ class Api:
         logger.info(f"打开下载页面: {url}")
         return open_download_page(url)
 
+    def open_guide_page(self) -> bool:
+        """在外部浏览器中打开引导页面"""
+        guide_url = "http://localhost:12346"
+        logger.info(f"打开引导页面: {guide_url}")
+        try:
+            webbrowser.open(guide_url)
+            return True
+        except Exception as e:
+            logger.error(f"打开引导页面失败: {e}")
+            return False
+
 
 def run_async_loop(loop):
     asyncio.set_event_loop(loop)
@@ -985,7 +1041,7 @@ def main():
     try:
         # 等待 WebSocket 启动完成（超时 5 秒）
         ws_start_future.result(timeout=5)
-    except OSError as e:
+    except OSError:
         # 端口被占用，弹框提示用户
         error_msg = "无法启动应用!\n\nWebSocket 端口 12345 被占用\n\n请检查是否有其他程序占用该端口，或稍后重试。"
         import tkinter as tk
@@ -995,7 +1051,7 @@ def main():
         messagebox.showerror("启动失败", error_msg)
         root.destroy()
         return
-    except Exception as e:
+    except Exception:
         # 其他错误
         error_msg = "无法启动 WebSocket 服务器，请稍后重试。"
         import tkinter as tk
@@ -1005,6 +1061,10 @@ def main():
         messagebox.showerror("启动失败", error_msg)
         root.destroy()
         return
+
+    # 启动引导页面服务
+    guide_server = GuideServer(port=12346)
+    guide_server.start()
 
     # 确定 web 目录和 URL
     if getattr(sys, 'frozen', False):
@@ -1038,6 +1098,7 @@ def main():
     webview.start()
 
     # 清理
+    guide_server.stop()
     asyncio.run_coroutine_threadsafe(ws_server.stop(), loop)
     loop.call_soon_threadsafe(loop.stop)
 

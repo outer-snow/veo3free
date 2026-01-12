@@ -52,6 +52,7 @@ export interface PyWebViewApi {
   get_app_version: () => Promise<string>;
   check_update: () => Promise<UpdateInfo>;
   open_update_page: (url: string) => Promise<boolean>;
+  open_guide_page: () => Promise<void>;
 }
 
 declare global {
