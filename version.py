@@ -1,51 +1,23 @@
 """版本管理模块"""
 
-import os
+import sys
 from pathlib import Path
 
 APP_NAME = "veo3free"
 GITHUB_REPO = "jasper9w/veo3free"
+__version__ = "1.0.5"
 
 
 def get_version() -> str:
     """获取当前应用版本号"""
-    try:
-        # 首先尝试从 importlib 读取
-        from importlib.metadata import version, PackageNotFoundError
-        try:
-            return version(APP_NAME)
-        except PackageNotFoundError:
-            pass
-    except ImportError:
-        pass
+    if getattr(sys, 'frozen', False):
+        return __version__
 
-    # 如果失败，从 pyproject.toml 读取
-    try:
-        project_root = Path(__file__).parent
-        pyproject_path = project_root / "pyproject.toml"
-
-        if pyproject_path.exists():
-            # Python 3.11+ 有 tomllib，否则使用简单正则
-            try:
-                import tomllib
-                with open(pyproject_path, 'rb') as f:
-                    data = tomllib.load(f)
-                    return data.get('project', {}).get('version', 'dev')
-            except (ImportError, Exception):
-                # 备用方案：简单正则提取
-                with open(pyproject_path, 'r') as f:
-                    for line in f:
-                        if line.startswith('version'):
-                            # 提取 version = "1.0.0" 中的版本号
-                            parts = line.split('=', 1)
-                            if len(parts) == 2:
-                                version_str = parts[1].strip().strip('"').strip("'")
-                                if version_str:
-                                    return version_str
-    except Exception:
-        pass
-
-    return "dev"
+    # 开发环境从 pyproject.toml 读取
+    import tomllib
+    pyproject_path = Path(__file__).parent / "pyproject.toml"
+    with open(pyproject_path, 'rb') as f:
+        return tomllib.load(f)["project"]["version"]
 
 
 def compare_versions(current: str, latest: str) -> int:
