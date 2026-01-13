@@ -946,6 +946,10 @@ class Api:
         """打开输出目录"""
         self._open_directory(OUTPUT_DIR)
 
+    def open_logs_dir(self):
+        """打开日志目录"""
+        self._open_directory(LOGS_DIR)
+
     def open_task_file(self, task_index):
         """打开任务的文件（不是文件夹）"""
         if 0 <= task_index < len(self.task_manager.tasks):

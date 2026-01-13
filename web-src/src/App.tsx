@@ -318,6 +318,11 @@ function App() {
     await api.open_output_dir();
   };
 
+  const handleOpenLogsDir = async () => {
+    if (!ready || !api) return;
+    await api.open_logs_dir();
+  };
+
   // 检查更新
   const checkForUpdate = async (showNoUpdate = false) => {
     if (!ready || !api || checkingUpdate) return;
@@ -724,6 +729,7 @@ function App() {
         checkingUpdate={checkingUpdate}
         updateInfo={updateInfo}
         onCheckUpdate={() => checkForUpdate(true)}
+        onOpenLogs={handleOpenLogsDir}
       />
 
       {/* Update Modal */}
