@@ -1,5 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import sys
+
 block_cipher = None
 
 a = Analysis(
@@ -28,8 +30,9 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    [],
-    exclude_binaries=True,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     name='veo3free',
     debug=False,
     bootloader_ignore_signals=False,
@@ -43,20 +46,10 @@ exe = EXE(
     entitlements_file=None,
 )
 
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='veo3free',
-)
-
-app = BUNDLE(
-    coll,
-    name='veo3free.app',
-    icon='icons/app_icon.icns',
-    bundle_identifier='com.veo3free.app',
-)
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        exe,
+        name='veo3free.app',
+        icon='icons/app_icon.icns',
+        bundle_identifier='com.veo3free.app',
+    )
