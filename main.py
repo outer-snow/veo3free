@@ -73,25 +73,41 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 LOGS_DIR = OUTPUT_DIR.parent / "logs" if getattr(sys, 'frozen', False) else Path("logs")
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
+# 获取版本号用于日志
+from version import __version__ as APP_VERSION
+
 logger.remove()  # 移除默认handler
 
-# 控制台输出（简洁格式）
+# 日志格式：时间 | 版本 | 文件:行号 | 消息
+LOG_FORMAT_CONSOLE = "<green>{time:HH:mm:ss}</green> | <cyan>v{extra[ver]}</cyan> | <level>{message}</level>"
+LOG_FORMAT_FILE = "{time:YYYY-MM-DD HH:mm:ss} | v{extra[ver]} | {name}:{line} | {level: <8} | {message}"
+
+# 控制台输出
 logger.add(
     lambda msg: print(msg, end=""),
-    format="{time:HH:mm:ss} | {message}",
+    format=LOG_FORMAT_CONSOLE,
     level="INFO",
+    colorize=True,
     filter=lambda record: not record["extra"].get("file_only")
 )
 
-# 文件日志（完整格式，包含异常详情）
+# 文件日志（完整格式，包含代码位置）
 log_file = LOGS_DIR / "veo3free.log"
 logger.add(
     log_file,
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
+    format=LOG_FORMAT_FILE,
     rotation="10 MB",
     retention="7 days",
     encoding="utf-8"
 )
+
+# 绑定版本号到所有日志
+logger = logger.bind(ver=APP_VERSION)
+
+
+def get_logger():
+    """获取绑定了版本号的 logger"""
+    return logger.bind(ver=APP_VERSION)
 
 
 def log_error_to_file(message: str, exception: Exception = None):
@@ -135,16 +151,20 @@ class TaskManager:
             'page_number': page_number,
             'last_task_end': None
         }
+        logger.info(f"客户端注册: {client_id} (页面{page_number})")
         return client_id, page_number
 
     def remove_client(self, client_id):
         if client_id in self.clients:
+            page_number = self.clients[client_id].get('page_number')
             task_id = self.clients[client_id]['task_id']
             if task_id:
                 for task in self.tasks:
                     if task['id'] == task_id and task['status'] == '处理中':
                         task['status'] = '等待中'
+                        logger.warning(f"任务 {task_id} 因客户端断开重置为等待")
             del self.clients[client_id]
+            logger.info(f"客户端断开: {client_id} (页面{page_number})")
 
     def get_idle_client(self):
         now = datetime.now()
@@ -215,6 +235,7 @@ class TaskManager:
             'import_row_number': import_row_number  # 导入任务的行号（编号）
         }
         self.tasks.append(task)
+        logger.info(f"添加任务: {task_id} | {task_type} | {aspect_ratio}")
         return task
 
     def get_next_task(self):
@@ -237,6 +258,7 @@ class TaskManager:
                     task['status'] = '超时'
                     task['end_time'] = now.isoformat()
                     task['status_detail'] = f'任务超时（超过{self.TASK_TIMEOUT_SECONDS // 60}分钟）'
+                    logger.warning(f"任务超时: {task['id']} (耗时 {elapsed:.0f}s)")
                     # 释放对应客户端
                     client_id = task.get('client_id')
                     if client_id and client_id in self.clients:
@@ -503,11 +525,11 @@ class WebSocketServer:
                             task['preview_base64'] = ImageProcessor.generate_thumbnail(str(saved), size=(200, 200))
                         except Exception:
                             task['preview_base64'] = ''
-                    self.log(f"[保存] 已保存: {saved}")
+                    logger.info(f"任务完成: {task_id} -> {saved}")
                 else:
                     task['status'] = '下载失败'
                     task['end_time'] = datetime.now().isoformat()
-                    self.log(f"[失败] 下载失败")
+                    logger.error(f"任务保存失败: {task_id}")
                 break
         self.task_manager.mark_client_idle(client_id)
 
@@ -516,13 +538,13 @@ class WebSocketServer:
             self.server = await serve(
                 self.handler,
                 "localhost",
-                12343,
+                12345,
                 max_size=50 * 1024 * 1024
             )
-            self.log("WebSocket服务器已启动: ws://localhost:12343")
+            logger.info("WebSocket 服务器已启动: ws://localhost:12345")
         except OSError as e:
             # 端口被占用
-            self.log("[错误] 无法启动 WebSocket 服务器")
+            logger.error("WebSocket 服务器启动失败 (端口占用)")
             log_error_to_file("WebSocket服务器启动失败", e)
             raise
 
@@ -582,12 +604,13 @@ class Api:
     def start_execution(self):
         total, _ = self.task_manager.get_client_count()
         if total == 0:
-            logger.warning("没有连接的客户端")
+            logger.warning("启动执行失败: 没有连接的客户端")
             return
         if not self.task_manager.tasks:
-            logger.warning("任务列表为空")
+            logger.warning("启动执行失败: 任务列表为空")
             return
         self.task_manager.is_running = True
+        logger.info(f"启动任务执行: 客户端数={total}, 任务数={len(self.task_manager.tasks)}")
         asyncio.run_coroutine_threadsafe(self._execute_tasks(), self.loop)
 
     def stop_execution(self):
@@ -595,13 +618,13 @@ class Api:
         logger.info("已停止执行")
 
     async def _execute_tasks(self):
-        logger.info("开始执行任务队列")
+        logger.info("任务执行循环启动")
 
         while self.task_manager.is_running:
             # 检查超时任务
             timeout_tasks = self.task_manager.check_timeout_tasks()
             for t in timeout_tasks:
-                logger.warning(f"任务超时: {t['id']} - {t['prompt'][:30]}...")
+                logger.warning(f"任务超时: {t['id']}")
 
             task = self.task_manager.get_next_task()
             if not task:
@@ -652,7 +675,7 @@ class Api:
             self.task_manager.mark_client_busy(client_id, task['id'])
             self.task_manager.current_index += 1
 
-            logger.info(f"[{client_id}] 分配任务: {task['prompt'][:40]}...")
+            logger.info(f"分配任务: {task['id']} -> {client_id} | {task['task_type']}")
 
             # 延迟处理参考图片：如果是路径则压缩为 base64
             reference_images = []
@@ -679,7 +702,8 @@ class Api:
             try:
                 await client_info['ws'].send(message)
             except Exception as e:
-                log_error_to_file(f"[{client_id}] 发送失败", e)
+                logger.error(f"任务发送失败: {task['id']} -> {client_id}")
+                log_error_to_file(f"任务发送失败", e)
                 task['status'] = '等待中'
                 self.task_manager.mark_client_idle(client_id)
 
@@ -723,6 +747,7 @@ class Api:
             return {'success': False, 'count': 0, 'errors': []}
 
         filepath = result[0]
+        logger.info(f"导入 Excel 开始: {Path(filepath).name}")
 
         # 验证分辨率和任务类型是否匹配
         def validate_resolution(task_type, resolution, aspect_ratio):
@@ -1025,6 +1050,16 @@ def run_async_loop(loop):
 
 
 def main():
+    # 启动日志
+    logger.info("=" * 50)
+    logger.info(f"Veo3Free 启动 - 版本: {get_version()}")
+    logger.info(f"运行环境: {'打包模式' if getattr(sys, 'frozen', False) else '开发模式'}")
+    logger.info(f"操作系统: {platform.system()} {platform.release()}")
+    logger.info(f"Python: {sys.version}")
+    logger.info(f"输出目录: {OUTPUT_DIR}")
+    logger.info(f"日志目录: {LOGS_DIR}")
+    logger.info("=" * 50)
+
     # 创建事件循环
     loop = asyncio.new_event_loop()
     thread = threading.Thread(target=run_async_loop, args=(loop,), daemon=True)
@@ -1036,14 +1071,17 @@ def main():
 
     # 启动 WebSocket 服务器，捕获端口占用错误
     ws_server = WebSocketServer(task_manager)
+    logger.info("正在启动 WebSocket 服务器 (端口 12345)...")
     ws_start_future = asyncio.run_coroutine_threadsafe(ws_server.start(), loop)
 
     try:
         # 等待 WebSocket 启动完成（超时 5 秒）
         ws_start_future.result(timeout=5)
-    except OSError:
+        logger.info("WebSocket 服务器启动成功")
+    except OSError as e:
         # 端口被占用，弹框提示用户
-        error_msg = "无法启动应用!\n\nWebSocket 端口 12343 被占用\n\n请检查是否有其他程序占用该端口，或稍后重试。"
+        logger.error(f"WebSocket 服务器启动失败 (端口占用): {e}")
+        error_msg = "无法启动应用!\n\nWebSocket 端口 12345 被占用\n\n请检查是否有其他程序占用该端口，或稍后重试。"
         import tkinter as tk
         from tkinter import messagebox
         root = tk.Tk()
@@ -1051,8 +1089,9 @@ def main():
         messagebox.showerror("启动失败", error_msg)
         root.destroy()
         return
-    except Exception:
+    except Exception as e:
         # 其他错误
+        logger.error(f"WebSocket 服务器启动失败: {e}")
         error_msg = "无法启动 WebSocket 服务器，请稍后重试。"
         import tkinter as tk
         from tkinter import messagebox
@@ -1063,14 +1102,19 @@ def main():
         return
 
     # 启动引导页面服务
+    logger.info("正在启动引导页面服务 (端口 12346)...")
     guide_server = GuideServer(port=12346)
-    guide_server.start()
+    if guide_server.start():
+        logger.info("引导页面服务启动成功")
+    else:
+        logger.warning("引导页面服务启动失败")
 
     # 确定 web 目录和 URL
     if getattr(sys, 'frozen', False):
         # 打包后，使用打包的web目录
         web_dir = Path(sys._MEIPASS) / 'web'
         url = str(web_dir / 'index.html')
+        logger.info(f"使用打包资源: {url}")
     else:
         # 开发模式
         web_dir = Path(__file__).parent / 'web'
@@ -1083,6 +1127,7 @@ def main():
             logger.info(f"使用本地文件: {url}")
 
     # 创建窗口
+    logger.info("正在创建应用窗口...")
     window = webview.create_window(
         'Veo3Free - AI生成工具',
         url,
@@ -1092,15 +1137,18 @@ def main():
         maximized=True,
         js_api=api
     )
-    # !!! 严谨对api设置window等对象，例如“api.window = window”是极其危险的！！！
+    # !!! 严谨对api设置window等对象，例如"api.window = window"是极其危险的！！！
 
     # 启动 webview
+    logger.info("启动 webview 主循环...")
     webview.start()
 
     # 清理
+    logger.info("正在关闭应用...")
     guide_server.stop()
     asyncio.run_coroutine_threadsafe(ws_server.stop(), loop)
     loop.call_soon_threadsafe(loop.stop)
+    logger.info("应用已退出")
 
 
 if __name__ == "__main__":

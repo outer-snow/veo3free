@@ -9,7 +9,10 @@ from dataclasses import dataclass
 from typing import Optional
 
 from loguru import logger
-from version import get_version, compare_versions, GITHUB_REPO
+from version import get_version, compare_versions, GITHUB_REPO, __version__
+
+# 绑定版本号到日志
+logger = logger.bind(ver=__version__)
 
 
 @dataclass
