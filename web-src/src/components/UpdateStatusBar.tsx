@@ -1,4 +1,4 @@
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, FileText } from 'lucide-react';
 import type { SystemInfo, UpdateInfo } from '../types';
 
 interface UpdateStatusBarProps {
@@ -6,6 +6,7 @@ interface UpdateStatusBarProps {
   checkingUpdate: boolean;
   updateInfo: UpdateInfo | null;
   onCheckUpdate: () => void;
+  onOpenLogs: () => void;
 }
 
 export function UpdateStatusBar({
@@ -13,6 +14,7 @@ export function UpdateStatusBar({
   checkingUpdate,
   updateInfo,
   onCheckUpdate,
+  onOpenLogs,
 }: UpdateStatusBarProps) {
   if (!systemInfo) return null;
 
@@ -42,6 +44,14 @@ export function UpdateStatusBar({
         </button>
         <span className="select-text cursor-text">{systemInfo.userAgent}</span>
       </div>
+      <button
+        onClick={onOpenLogs}
+        className="flex items-center gap-1 text-violet-600 hover:text-violet-700 transition-colors"
+        title="打开日志目录"
+      >
+        <FileText className="w-3 h-3" />
+        <span>调试日志</span>
+      </button>
     </footer>
   );
 }
