@@ -14,7 +14,7 @@ content = version_file.read_text(encoding='utf-8')
 import re
 content = re.sub(r'__version__ = "[^"]+"', f'__version__ = "{version}"', content)
 version_file.write_text(content, encoding='utf-8')
-print(f"[spec] 版本号已同步: {version}")
+print(f"[spec] version synced: {version}")
 
 block_cipher = None
 
