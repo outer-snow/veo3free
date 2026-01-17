@@ -538,7 +538,7 @@ class WebSocketServer:
             self.server = await serve(
                 self.handler,
                 "localhost",
-                12345,
+                12343,
                 max_size=50 * 1024 * 1024
             )
             logger.info("WebSocket 服务器已启动: ws://localhost:12345")
