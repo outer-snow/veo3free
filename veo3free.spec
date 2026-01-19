@@ -1,6 +1,20 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import sys
+import tomllib
+from pathlib import Path
+
+# 从 pyproject.toml 读取版本号并同步到 version.py
+root = Path(SPECPATH)
+with open(root / "pyproject.toml", "rb") as f:
+    version = tomllib.load(f)["project"]["version"]
+
+version_file = root / "version.py"
+content = version_file.read_text(encoding='utf-8')
+import re
+content = re.sub(r'__version__ = "[^"]+"', f'__version__ = "{version}"', content)
+version_file.write_text(content, encoding='utf-8')
+print(f"[spec] version synced: {version}")
 
 block_cipher = None
 

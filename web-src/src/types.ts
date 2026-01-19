@@ -53,6 +53,7 @@ export interface PyWebViewApi {
   check_update: () => Promise<UpdateInfo>;
   open_update_page: (url: string) => Promise<boolean>;
   open_guide_page: () => Promise<void>;
+  open_logs_dir: () => Promise<void>;
 }
 
 declare global {

@@ -40,7 +40,7 @@
         }
 
         .container {
-            max-width: 600px;
+            max-width: 780px;
             margin: 0 auto;
             padding: 0 20px;
         }
@@ -49,10 +49,10 @@
         .bookmarklet-button {
             display: inline-flex;
             align-items: center;
-            padding: 8px 8px;
-            background: #fafafa;
+            padding: 10px 16px;
+            background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
             border: 2px solid #d1d5db;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: grab;
             user-select: none;
             text-decoration: none;
@@ -60,21 +60,83 @@
             font-weight: 600;
             font-size: 15px;
             transition: all 0.15s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin: 15px 0;
+            justify-content: center;
+            width: 100%;
+            max-width: 300px;
         }
 
         .bookmarklet-button:hover {
-            background: #f3f4f6;
+            background: linear-gradient(to bottom, #ffffff, #f8f9fa);
             border-color: #9ca3af;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .bookmarklet-button-inline {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 6px;
+            background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+            border: 2px solid #d1d5db;
+            border-radius: 6px;
+            cursor: grab;
+            user-select: none;
+            text-decoration: none;
+            color: #374151;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.15s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin: 0 4px;
+            vertical-align: middle;
+        }
+
+        .bookmarklet-button-inline:hover {
+            background: linear-gradient(to bottom, #ffffff, #f8f9fa);
+            border-color: #9ca3af;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .bookmarklet-wrapper {
+            position: relative;
+            display: inline-block;
+            margin: 0 4px;
+            padding-top: 20px;
+        }
+
+        .arrow-up-small {
+            position: absolute;
+            top: 0;
+            left: 38%;
+            transform: translateX(-50%);
+            animation: arrow-bounce 2s infinite;
+            z-index: 10;
+        }
+
+        .arrow-up-small svg {
+            width: 20px;
+            height: 20px;
+            color: #1a73e8;
         }
 
         .bookmarklet-button:active {
             cursor: grabbing;
+            transform: translateY(0);
+        }
+
+        .arrow-up {
+            display: flex;
+            justify-content: center;
+            margin: 12px auto;
+            animation: arrow-bounce 2s infinite;
+            width: fit-content;
         }
 
         .arrow-up svg {
-            width: 28px;
-            height: 28px;
+            width: 32px;
+            height: 32px;
             color: #1a73e8;
         }
 
@@ -126,12 +188,55 @@
         .step {
             display: flex;
             gap: 16px;
-            align-items: flex-start;
-            margin-bottom: 28px;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #e5e7eb;
         }
 
         .step:last-child {
             margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .step-number-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .steps {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .steps::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 37px; /* 16px (半径) + 1px (线宽一半) */
+            bottom: 0;
+            width: 2px;
+            background: repeating-linear-gradient(
+                to bottom,
+                #d1d5db,
+                #d1d5db 4px,
+                transparent 4px,
+                transparent 8px
+            );
+            z-index: 1;
+        }
+
+        .step-number-wrapper {
+            position: absolute;
+            left: 18px;  /* 17px (虚线位置) - 16px (数字半径) = 1px */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            width: 32px;
         }
 
         .step-number {
@@ -146,11 +251,15 @@
             font-weight: 600;
             font-size: 15px;
             flex-shrink: 0;
+            margin-top: 0;
+            position: relative;
+            z-index: 1;
         }
 
         .step-content {
             flex: 1;
             padding-top: 4px;
+            margin-left: 41px;
         }
 
         .step-content-title {
@@ -202,19 +311,25 @@
 
     <div class="steps">
         <div class="step">
-            <div class="step-number" style="margin-top: 9px">1</div>
+            <div class="step-number-wrapper">
+                <div class="step-number">1</div>
+            </div>
             <div class="step-content">
-                <div class="step-content-title">
-                    拖拽
-                    <a href="javascript:(function(){if(window.__flow3free_loaded){console.log('flow3free already loaded');return;}window.__flow3free_loaded=true;var s=document.createElement('script');s.src='http://localhost:12346/inject.js?t='+Date.now();s.onerror=function(){console.error('Failed to load inject.js');window.__flow3free_loaded=false;};document.body.appendChild(s);})();"
-                       class="bookmarklet-button" draggable="true">
-                        flow3free
-                    </a>
-                    到上方书签栏
+                <div class="step-content-title">拖拽<span class="bookmarklet-wrapper">
+                        <div class="arrow-up-small">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                                <polyline points="8 7 12 3 16 7"></polyline>
+                            </svg>
+                        </div>
+                        <a href="javascript:(function(){if(window.__flow3free_loaded){console.log('flow3free already loaded');return;}window.__flow3free_loaded=true;var s=document.createElement('script');s.src='http://localhost:12346/inject.js?t='+Date.now();s.onerror=function(){console.error('Failed to load inject.js');window.__flow3free_loaded=false;};document.body.appendChild(s);})();"
+                           class="bookmarklet-button-inline" draggable="true" title="拖拽此按钮到书签栏">
+                            veo3free
+                        </a>
+                    </span>到上方书签栏
                 </div>
                 <div class="step-content-desc">
-
-                    将上方的 flow3free 按钮拖拽到浏览器顶部的书签栏中，只需操作一次。
+                    将此按钮拖拽到浏览器顶部的书签栏中，只需操作一次。
 
                     <div class="bookmark-help" id="bookmarkHelp">
                         <div class="bookmark-help-title">如果看不到书签栏：</div>
@@ -226,24 +341,41 @@
             </div>
         </div>
         <div class="step">
-            <div class="step-number">2</div>
+            <div class="step-number-wrapper">
+                <div class="step-number">2</div>
+            </div>
             <div class="step-content">
                 <div class="step-content-title">打开 Flow 页面并进入项目</div>
                 <div class="step-content-desc">
-                    前往 <a href="https://labs.google/fx/tools/flow" target="_blank" class="flow-link">Google Flow</a>，创建或打开一个项目进入编辑界面。
+                    前往 <a href="https://labs.google/fx/tools/flow" target="_blank" class="flow-link">Google Flow</a>，<strong>必须创建或打开一个项目</strong>进入编辑界面。
                     <div class="important-note">
-                        ⚠️ 确保 Flow 界面语言设置为英文（English）；并确保使用的是Gemini Ultra权限的账号（即45000积分版本）
+                        <strong>⚠️ 重要前提与检查项：</strong><br><br>
+
+                        <strong>1. Gemini Ultra权限账号</strong><br>
+                        确保使用的是拥有Gemini Ultra权限的账号（即45000积分版本）<br><br>
+
+                        <strong>2. 语言设置（必须为英文）</strong><br>
+                        - 打开 <a href="https://myaccount.google.com/personal-info" target="_blank" class="flow-link">https://myaccount.google.com/personal-info</a><br>
+                        - 点击"语言" -> 编辑(铅笔图标)<br>
+                        - 选择"English" -> 选择"United States" -> 点击"保存"
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="step">
-            <div class="step-number">3</div>
+            <div class="step-number-wrapper">
+                <div class="step-number">3</div>
+            </div>
             <div class="step-content">
                 <div class="step-content-title">点击书签激活连接</div>
                 <div class="step-content-desc">
                     在 Flow 项目页面中，点击书签栏的 flow3free 按钮即可建立连接，开始同步生成内容。
+                    <div class="important-note">
+                        <strong>⚠️ 项目页面确认：</strong><br><br>
+                        确保您已进入项目编辑界面，项目页面示例：<br>
+                        https://labs.google/fx/tools/flow/project/****
+                    </div>
                 </div>
             </div>
         </div>
